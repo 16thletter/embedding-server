@@ -1,0 +1,46 @@
+version: '3.8'
+
+networks:
+  app-network:
+    driver: bridge
+
+services:
+  embedding-server:
+    build: .
+    container_name: embedding-server
+    ports:
+      - "5001:5001"
+    environment:
+      - PORT=5001
+    restart: unless-stopped
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5001/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    # Resource limits for memory efficiency
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+        reservations:
+          memory: 512M
+
+  # Example of how to integrate with your main app
+  # Uncomment and modify this section to match your existing app
+  # main-app:
+  #   image: your-app-image:latest
+  #   container_name: main-app
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - EMBEDDING_SERVICE_URL=http://embedding-server:5001
+  #   depends_on:
+  #     embedding-server:
+  #       condition: service_healthy
+  #   networks:
+  #     - app-network
+  #   restart: unless-stopped
