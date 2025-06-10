@@ -13,49 +13,18 @@ app = Flask(__name__)
 # Global model variable - will be loaded lazily
 model = None
 
-def expand_embedding_to_768(embedding_384):
-    """Expand 384-dimensional embedding to 768 dimensions for Rails compatibility
 
-    Uses multiple methods to preserve semantic quality:
-    1. Original dimensions (384)
-    2. Polynomial features for interaction terms
-    3. Deterministic transformations (no randomness for consistency)
-    """
-    emb = np.array(embedding_384)
-
-    # Method: Deterministic expansion with mathematical transformations
-    # This preserves more semantic information than simple duplication
-
-    # Part 1: Original embedding (384 dims)
-    part1 = emb
-
-    # Part 2: Non-linear transformations (384 dims)
-    # These capture interaction patterns and non-linear relationships
-    part2 = np.tanh(emb * 1.2)  # Scaled tanh transformation
-
-    # Combine parts
-    expanded = np.concatenate([part1, part2])
-
-    # Normalize to maintain vector properties
-    norm = np.linalg.norm(expanded)
-    if norm > 0:
-        expanded = expanded / norm
-
-    return expanded.tolist()
 
 def get_model():
     """Lazy load the model to reduce startup time and memory usage"""
     global model
     if model is None:
         logger.info("Loading embedding model...")
-        # OPTION 1: Fast with expansion (current)
-        model = SentenceTransformer('all-MiniLM-L6-v2')
-
-        # OPTION 2: Medium speed, native 768-dim (uncomment to use)
-        # model = SentenceTransformer('all-MiniLM-L12-v2')  # ~120MB, 384→768 native
-
-        # OPTION 3: Best quality, slower (uncomment to use)
-        # model = SentenceTransformer('all-mpnet-base-v2')  # ~420MB, true 768-dim
+        # Using all-mpnet-base-v2 for native 768-dimensional embeddings
+        # - Size: ~420MB
+        # - Dimensions: 768 (native, high quality)
+        # - Best quality embeddings
+        model = SentenceTransformer('all-mpnet-base-v2')
         logger.info("Model loaded successfully")
     return model
 
@@ -80,15 +49,12 @@ def embed():
 
         # Get model and generate embedding
         embedding_model = get_model()
-        embedding_384 = embedding_model.encode(text, convert_to_tensor=False).tolist()
-
-        # Expand to 768 dimensions for Rails compatibility
-        embedding_768 = expand_embedding_to_768(embedding_384)
+        embedding = embedding_model.encode(text, convert_to_tensor=False).tolist()
 
         return jsonify({
-            'embedding': embedding_768,
-            'dimensions': len(embedding_768),
-            'model': 'all-MiniLM-L6-v2-expanded'
+            'embedding': embedding,
+            'dimensions': len(embedding),
+            'model': 'all-mpnet-base-v2'
         })
 
     except Exception as e:
