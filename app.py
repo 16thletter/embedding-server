@@ -1,9 +1,10 @@
+import os
 from flask import Flask, request, jsonify
 from sentence_transformers import SentenceTransformer
 
 app = Flask(__name__)
 
-# Load model at startup (like your fast version)
+# Load model at startup for maximum speed
 print("Loading embedding model...")
 model = SentenceTransformer('all-mpnet-base-v2')  # 768-dim embeddings
 print("Model loaded successfully!")
@@ -25,5 +26,7 @@ def embed():
     return jsonify({'embedding': embedding})
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5001)
+    # For local development only
+    port = int(os.environ.get('PORT', 5001))
+    app.run(host='0.0.0.0', port=port, debug=False)
     
