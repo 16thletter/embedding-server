@@ -1,5 +1,3 @@
-version: '3.8'
-
 networks:
   app-network:
     driver: bridge
@@ -7,27 +5,32 @@ networks:
 services:
   embedding-server:
     build: .
+    image: embedding-server:latest
     container_name: embedding-server
     ports:
       - "5001:5001"
     environment:
       - PORT=5001
+      - PYTHONUNBUFFERED=1
+      - TRANSFORMERS_CACHE=/home/appuser/.cache/torch/sentence_transformers
+      - TORCH_HOME=/home/appuser/.cache/torch
+      - HF_HOME=/home/appuser/.cache/huggingface
     restart: unless-stopped
     networks:
       - app-network
     healthcheck:
-      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5001/health')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/health')"]
       interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    # Resource limits for memory efficiency
+      timeout: 15s
+      retries: 5
+      start_period: 120s
+    # Resource limits for memory efficiency - optimized for all-mpnet-base-v2
     deploy:
       resources:
         limits:
-          memory: 1G
+          memory: 3G
         reservations:
-          memory: 512M
+          memory: 1.5G
 
   # Example of how to integrate with your main app
   # Uncomment and modify this section to match your existing app

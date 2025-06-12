@@ -4,12 +4,17 @@
 
 set -e
 
-echo "Building embedding server Docker image..."
+echo "Building optimized embedding server Docker image..."
+echo "Using CPU-only PyTorch for minimal size..."
 
 # Build the image
 docker build -t embedding-server:latest .
 
-echo "Build completed successfully!"
+echo ""
+echo "✅ Build completed successfully!"
+echo ""
+echo "Image size:"
+docker images embedding-server:latest --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
 echo ""
 echo "To run the container:"
 echo "  docker run -p 5001:5001 embedding-server:latest"
