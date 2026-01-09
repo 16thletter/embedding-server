@@ -1,13 +1,13 @@
 # Embedding Server
 
-This is an optimized Flask server that provides text embeddings using the `sentence-transformers` library with the `all-MiniLM-L6-v2` model (optimized for memory efficiency and speed).
+This is an optimized Flask server that provides text embeddings using the `sentence-transformers` library with the `all-mpnet-base-v2` model (768-dimensional embeddings for high quality).
 
 ---
 
 ## Files
 
-- `app.py` — Optimized Flask server code for embedding endpoint
-- `requirements.txt` — Python dependencies (CPU-only PyTorch for smaller size)
+- `app.py` — Flask server code with embedding endpoint
+- `requirements.txt` — Python dependencies
 - `run_server.py` — Script to install dependencies and run the server (legacy)
 - `Dockerfile` — Multi-stage Docker build for minimal image size
 - `docker-compose.yml` — Docker Compose configuration
@@ -32,29 +32,19 @@ sudo apt install python3-pip
 
 ## Setup and Run
 
-### Option 1: Quick Start for Local Development
+### Option 1: Docker Compose (Recommended)
 
 ```bash
-# One-command setup - builds, starts, and tests the service
-./start-embedding-service.sh
+# Build and run the embedding server
+docker-compose up --build -d
+
+# Check if it's running (may take 1-2 minutes for model to load)
+curl http://localhost:5001/health
 ```
 
-This will:
-- Build the Docker image
-- Start the service on localhost:5001
-- Test the connection
-- Show integration info
+This will build and start the embedding server on localhost:5001. The first startup takes 1-2 minutes to download and load the model.
 
-### Option 2: Integration with Existing Project
-
-If you have an app running on localhost:3000, add the embedding service:
-
-```bash
-# Start embedding service alongside your app
-docker-compose -f docker-compose.integration.yml up -d
-```
-
-### Option 3: Manual Docker Commands
+### Option 2: Manual Docker Commands
 
 ```bash
 # Build the image
@@ -64,13 +54,7 @@ docker-compose -f docker-compose.integration.yml up -d
 docker run -p 5001:5001 embedding-server:latest
 ```
 
-Or use Docker Compose:
-
-```bash
-docker-compose up
-```
-
-### Option 2: Direct Python (Legacy)
+### Option 3: Direct Python (Legacy)
 
 1. Clone or copy the repository folder to your system.
 
@@ -98,6 +82,15 @@ This will:
 curl http://localhost:5001/health
 ```
 
+**Response:**
+```json
+{
+  "status": "healthy",
+  "model_loaded": true,
+  "model_name": "all-mpnet-base-v2"
+}
+```
+
 **Get Embedding:**
 ```bash
 curl -X POST http://localhost:5001/embed \
@@ -108,27 +101,11 @@ curl -X POST http://localhost:5001/embed \
 **Response:**
 ```json
 {
-  "embedding": [ /* 384-dimensional embedding vector */ ],
-  "dimensions": 384,
-  "model": "all-MiniLM-L6-v2"
+  "embedding": [ /* 768-dimensional embedding vector */ ]
 }
 ```
 
 ### Integration with Your App
-
-**JavaScript/Node.js:**
-```javascript
-const EmbeddingClient = require('./client/embedding-client');
-const client = new EmbeddingClient();
-
-// Get embedding
-const result = await client.getEmbedding("Hello world");
-console.log(result.embedding);
-
-// Find similar texts
-const similar = await client.findMostSimilar("cat", ["dog", "kitten", "car"]);
-console.log(similar.bestMatch); // "kitten"
-```
 
 **Environment Variables:**
 ```bash
@@ -138,33 +115,103 @@ EMBEDDING_SERVICE_URL=http://localhost:5001
 EMBEDDING_SERVICE_URL=http://embedding-server:5001
 ```
 
-See `examples/integration-examples.md` for detailed code examples in multiple languages.
+**Example Integration (Python):**
+```python
+import requests
+
+def get_embedding(text):
+    response = requests.post(
+        'http://localhost:5001/embed',
+        json={'text': text}
+    )
+    return response.json()['embedding']
+
+# Usage
+embedding = get_embedding("Hello world")
+print(f"Embedding dimensions: {len(embedding)}")  # 768
+```
 
 ---
 
-## Optimizations
+## Features
 
-This Docker setup includes several optimizations for minimal memory usage:
+This Docker setup includes several optimizations and features:
 
-- **Smaller Model**: Uses `all-MiniLM-L6-v2` (~90MB) instead of `all-mpnet-base-v2` (~420MB)
-- **CPU-only PyTorch**: Reduces image size significantly
-- **Multi-stage Build**: Separates build and runtime dependencies
-- **Lazy Loading**: Model loads only when first needed
-- **Memory Limits**: Docker Compose includes memory constraints
+- **High-Quality Model**: Uses `all-mpnet-base-v2` (~420MB) for 768-dimensional embeddings
+- **CPU-Only PyTorch**: Uses CPU-optimized PyTorch to prevent CUDA bloat (keeps image ~2.2GB vs 11GB)
+- **Multi-stage Build**: Separates build and runtime dependencies for smaller final image
+- **Eager Loading**: Model loads at startup for maximum response speed
+- **Memory Optimized**: 3GB memory limit with garbage collection after model loading
 - **Non-root User**: Runs as non-privileged user for security
+- **Health Checks**: Built-in health monitoring with model status
+- **Error Handling**: Graceful error handling for model loading and embedding generation
 
-## Performance Comparison
+## Model Information
 
-| Model | Size | Dimensions | Speed | Quality |
-|-------|------|------------|-------|---------|
-| all-mpnet-base-v2 | ~420MB | 768 | 1x | Excellent |
-| all-MiniLM-L6-v2 | ~90MB | 384 | ~2x | Very Good |
+| Model | Size | Dimensions | Quality | Docker Image Size |
+|-------|------|------------|---------|-------------------|
+| all-mpnet-base-v2 | ~420MB | 768 | Excellent | ~2.2GB |
+
+## Performance
+
+- **First startup**: 1-2 minutes (model download and loading)
+- **Subsequent startups**: ~30 seconds (model cached)
+- **Embedding generation**: ~100-500ms per request
+- **Memory usage**: ~1.5-2GB RAM during operation
+
+## Troubleshooting
+
+### Common Issues
+
+**Container keeps restarting:**
+- Check if you have enough memory (need at least 2GB available)
+- Wait 1-2 minutes for model to load on first startup
+
+**"Model not loaded" error:**
+- Check container logs: `docker-compose logs`
+- Ensure sufficient memory and wait for model loading to complete
+
+**Slow first startup:**
+- Normal behavior - model needs to download (~420MB) and load
+- Subsequent startups are much faster
+
+**Check container status:**
+```bash
+# View logs
+docker-compose logs -f
+
+# Check health
+curl http://localhost:5001/health
+
+# Test embedding
+curl -X POST http://localhost:5001/embed \
+  -H "Content-Type: application/json" \
+  -d '{"text": "test"}'
+```
+
+## 🚀 Production Deployment
+
+For production deployment instructions, see [DEPLOYMENT.md](./DEPLOYMENT.md).
+
+Quick start:
+```bash
+# Copy environment template
+cp .env.production.example .env.production
+
+# Edit if needed (most settings have defaults)
+nano .env.production
+
+# Deploy with Docker Compose
+docker-compose -f docker-compose.production.yml up -d
+```
 
 ## Notes
 
-- Docker container uses ~512MB-1GB RAM (vs ~300MB+ for the larger model)
+- Docker container uses ~1.5-2GB RAM (3GB limit for safety)
+- Model loads at startup - first startup takes 1-2 minutes for model download
+- Subsequent startups are faster (~30 seconds) if model cache is persisted
 - For better isolation, Docker is recommended over direct Python installation
-- Health check endpoint available at `/health`
-- Uses Gunicorn for production-ready serving
+- Health check endpoint available at `/health` with model status
+- Production uses Gunicorn for better performance and reliability
 
 

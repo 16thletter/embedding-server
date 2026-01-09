@@ -1,11 +1,9 @@
-# Core dependencies
+# Core dependencies - minimal versions
 flask==3.0.0
 gunicorn==21.2.0
 
-# ML dependencies - using compatible versions
+# ML dependencies - PyTorch installed separately, minimal compatible versions
 sentence-transformers==2.7.0
-torch==2.3.0
 transformers==4.40.0
 huggingface-hub==0.23.0
 numpy==1.24.3
-

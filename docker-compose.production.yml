@@ -1,12 +1,19 @@
+version: '3.8'
+
+# Production Docker Compose for Embedding Server
+# Uses all-mpnet-base-v2 model (768 dimensions, ~420MB)
+
 networks:
   app-network:
     driver: bridge
 
 services:
   embedding-server:
-    build: .
-    image: embedding-server:latest
-    container_name: embedding-server
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+    image: embedding-server:production
+    container_name: embedding-server-prod
     ports:
       - "5001:5001"
     environment:
@@ -23,27 +30,23 @@ services:
       interval: 30s
       timeout: 15s
       retries: 5
-      start_period: 120s
-    # Resource limits for memory efficiency - optimized for all-mpnet-base-v2
+      start_period: 180s  # Allow 3 minutes for model download and loading
+    # Resource limits optimized for all-mpnet-base-v2
     deploy:
       resources:
         limits:
           memory: 3G
         reservations:
           memory: 1.5G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    volumes:
+      # Persist model cache to avoid re-downloading on container restart
+      - embedding_model_cache:/home/appuser/.cache
 
-  # Example of how to integrate with your main app
-  # Uncomment and modify this section to match your existing app
-  # main-app:
-  #   image: your-app-image:latest
-  #   container_name: main-app
-  #   ports:
-  #     - "3000:3000"
-  #   environment:
-  #     - EMBEDDING_SERVICE_URL=http://embedding-server:5001
-  #   depends_on:
-  #     embedding-server:
-  #       condition: service_healthy
-  #   networks:
-  #     - app-network
-  #   restart: unless-stopped
+volumes:
+  embedding_model_cache:
+    driver: local
