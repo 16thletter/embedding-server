@@ -189,12 +189,29 @@ curl -X POST http://localhost:5001/embed \
   -d '{"text": "test"}'
 ```
 
+## 🚀 Production Deployment
+
+For production deployment instructions, see [DEPLOYMENT.md](./DEPLOYMENT.md).
+
+Quick start:
+```bash
+# Copy environment template
+cp .env.production.example .env.production
+
+# Edit if needed (most settings have defaults)
+nano .env.production
+
+# Deploy with Docker Compose
+docker-compose -f docker-compose.production.yml up -d
+```
+
 ## Notes
 
 - Docker container uses ~1.5-2GB RAM (3GB limit for safety)
-- Model loads at startup - first request may be slower
+- Model loads at startup - first startup takes 1-2 minutes for model download
+- Subsequent startups are faster (~30 seconds) if model cache is persisted
 - For better isolation, Docker is recommended over direct Python installation
 - Health check endpoint available at `/health` with model status
-- Uses Flask directly for better memory control during model loading
+- Production uses Gunicorn for better performance and reliability
 
 

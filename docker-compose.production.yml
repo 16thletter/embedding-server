@@ -1,0 +1,52 @@
+version: '3.8'
+
+# Production Docker Compose for Embedding Server
+# Uses all-mpnet-base-v2 model (768 dimensions, ~420MB)
+
+networks:
+  app-network:
+    driver: bridge
+
+services:
+  embedding-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+    image: embedding-server:production
+    container_name: embedding-server-prod
+    ports:
+      - "5001:5001"
+    environment:
+      - PORT=5001
+      - PYTHONUNBUFFERED=1
+      - TRANSFORMERS_CACHE=/home/appuser/.cache/torch/sentence_transformers
+      - TORCH_HOME=/home/appuser/.cache/torch
+      - HF_HOME=/home/appuser/.cache/huggingface
+    restart: unless-stopped
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5001/health')"]
+      interval: 30s
+      timeout: 15s
+      retries: 5
+      start_period: 180s  # Allow 3 minutes for model download and loading
+    # Resource limits optimized for all-mpnet-base-v2
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+        reservations:
+          memory: 1.5G
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    volumes:
+      # Persist model cache to avoid re-downloading on container restart
+      - embedding_model_cache:/home/appuser/.cache
+
+volumes:
+  embedding_model_cache:
+    driver: local
